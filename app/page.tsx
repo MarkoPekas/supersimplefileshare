@@ -32,8 +32,10 @@ export default function Home() {
   }
 
   function hs() {
+    setUploading(true);
     const file = fileRef.current?.files?.[0];
     if (!file) {
+      setUploading(false);
       return;
     }
     axios.get(`/api/upload`, {
