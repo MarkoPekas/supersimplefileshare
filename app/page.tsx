@@ -19,7 +19,7 @@ export default function Home() {
   const [getFolderID, setGetFolderID] = React.useState('');
   const [listFiles, setListFiles] = React.useState([] as any[]);
   const [uploading, setUploading] = React.useState(false);
-  const [exists, setExists] = React.useState<boolean | undefined>(undefined);
+  const [exists, setExists] = React.useState<boolean | undefined>(true);
   function handleDownload() {
     axios.get(`/api/download`, {
       params: {
@@ -27,40 +27,44 @@ export default function Home() {
       }
     }).then((response) => {
       setListFiles(response.data.blobs);
-      setExists(response.data.exists);
+      setExists(response.data.blobs.length>0);
     })
   }
 
-  async function handleSubmit(event: any) {
-    event.preventDefault();
-    setUploading(true);
+  function hs() {
     const file = fileRef.current?.files?.[0];
     if (!file) {
-      console.error('No file selected');
-      setUploading(false);
       return;
     }
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('name', file.name);
-
-    axios.post('/api/upload', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      },
-      onUploadProgress: (progressEvent) => {
-        const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 100));
-        setUploadProgress(percentCompleted); // Update state with progress
-        console.log(percentCompleted);
+    axios.get(`/api/upload`, {
+      params: {
+        name: fileRef.current?.files?.[0]?.name
       }
     }).then((response) => {
-      setFolderID(response.data.folder);
+      console.log(response.data.sasUrl, response.data.folder);
+      uploadFile(fileRef.current?.files?.[0] as File, response.data.sasUrl, response.data.folder);
+    })
+  }
+
+  async function uploadFile(file: File, sasUrl: string, folder: string) {
+    axios.put(sasUrl, file, {
+      headers: {
+        'x-ms-blob-type': 'BlockBlob',
+        'Content-Type': file.type,
+      },
+      onUploadProgress: function (progressEvent) {
+        const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 100));
+        setUploadProgress(percentCompleted); // Update state with progress
+      }
+    }).then(() => {
+      setFolderID(folder);
       setUploading(false);
     }).catch((error) => {
       console.error(error);
       setUploading(false);
     })
   }
+
   console.log(uploadProgress);
   return (
     <main className="min-h-screen  flex items-center justify-center flex-col text-center xl:text-left">
@@ -80,12 +84,12 @@ export default function Home() {
               <div className="flex w-full items-center gap-1.5">
                 {/* <Label htmlFor="picture">Choose a file</Label> */}
                 <Input ref={fileRef} id="file" type="file" />
-                <Button className="w-min" onClick={handleSubmit}
+                <Button className="w-min" onClick={hs}
                   disabled={uploading}
                 >Upload</Button>
               </div>
               <div className={`
-                  w-full mt-4 transition-transform overflow-hidden ${uploadProgress === 0 ? 'h-0' : 'h-4'}
+                  w-full mt-4 transition-transform overflow-hidden ${(uploadProgress === 0 || uploadProgress === 100) ? 'h-0' : 'h-4'}
                 `}>
                 <Progress value={uploadProgress} max={100} />
               </div>
@@ -133,26 +137,17 @@ export default function Home() {
                   )
                 })}
               {
-                exists === undefined
+                exists === true
                   ? null :
-                  (exists && listFiles.length === 0) ?
-                    <Alert className="text-left">
-                      <AlertTitle>Processing</AlertTitle>
-                      <AlertDescription>
-                        Please wait while we process the files. This could take a couple of minutes depending on the file size.
-                      </AlertDescription>
-                    </Alert> : 
-                    !exists ?
-                      <Alert className="text-left cursor-pointer">
-                        <FileWarning className="h-4 w-4" />
-                        <AlertTitle>
-                          The code does not exist
-                        </AlertTitle>
-                        <AlertDescription>
-                          Please check the code and try again
-                        </AlertDescription>
-                      </Alert>
-                      : null
+                  <Alert className="text-left cursor-pointer">
+                    <FileWarning className="h-4 w-4" />
+                    <AlertTitle>
+                      The code does not exist
+                    </AlertTitle>
+                    <AlertDescription>
+                      Please check the code and try again
+                    </AlertDescription>
+                  </Alert>
               }
             </div>
           </TabsContent>
