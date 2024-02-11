@@ -37,6 +37,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: 'File uploaded successfully', requestId: uploadBlobResponse.requestId, folder: folder });
   } catch (error: any) {
     console.error("Error uploading blob: ", error.message);
-    return NextResponse.json({ error: 'Error uploading file' }, { status: 500 });
+    return NextResponse.json({ error: 'Error uploading file', message: error.message }, { status: 500 });
   }
 }
