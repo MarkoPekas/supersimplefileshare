@@ -7,7 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import axios from "axios";
-import { Download, File } from "lucide-react";
+import { Download, File, FileWarning } from "lucide-react";
 import Image from "next/image";
 import React from "react";
 
@@ -19,7 +19,7 @@ export default function Home() {
   const [getFolderID, setGetFolderID] = React.useState('');
   const [listFiles, setListFiles] = React.useState([] as any[]);
   const [uploading, setUploading] = React.useState(false);
-
+  const [exists, setExists] = React.useState<boolean | undefined>(undefined);
   function handleDownload() {
     axios.get(`/api/download`, {
       params: {
@@ -27,6 +27,7 @@ export default function Home() {
       }
     }).then((response) => {
       setListFiles(response.data.blobs);
+      setExists(response.data.exists);
     })
   }
 
@@ -131,11 +132,33 @@ export default function Home() {
                     </Alert>
                   )
                 })}
+              {
+                exists === undefined
+                  ? null :
+                  (exists && listFiles.length === 0) ?
+                    <Alert className="text-left">
+                      <AlertTitle>Processing</AlertTitle>
+                      <AlertDescription>
+                        Please wait while we process the files. This could take a couple of minutes depending on the file size.
+                      </AlertDescription>
+                    </Alert> : 
+                    !exists ?
+                      <Alert className="text-left cursor-pointer">
+                        <FileWarning className="h-4 w-4" />
+                        <AlertTitle>
+                          The code does not exist
+                        </AlertTitle>
+                        <AlertDescription>
+                          Please check the code and try again
+                        </AlertDescription>
+                      </Alert>
+                      : null
+              }
             </div>
           </TabsContent>
         </Tabs>
       </div>
-      <p className="leading-7 [&:not(:first-child)]:mt-8">
+      <p className="leading-7 [&:not(:first-child)]:mt-8 px-2">
         Upload a file, get a link, share it with anyone. No limits, no fees. It{"'"}s that simple.
       </p>
     </main>
