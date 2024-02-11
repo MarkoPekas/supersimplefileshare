@@ -1,113 +1,165 @@
+"use client"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/components/ui/use-toast";
+import axios from "axios";
+import { Download, File } from "lucide-react";
 import Image from "next/image";
+import React from "react";
 
 export default function Home() {
+  const { toast } = useToast()
+  const fileRef = React.useRef<HTMLInputElement>(null);
+  const [uploadProgress, setUploadProgress] = React.useState(0);
+  const [folderID, setFolderID] = React.useState('');
+  const [getFolderID, setGetFolderID] = React.useState('');
+  const [listFiles, setListFiles] = React.useState([] as any[]);
+  const [uploading, setUploading] = React.useState(false);
+
+  function handleDownload() {
+    axios.get(`/api/download`, {
+      params: {
+        folderId: getFolderID.toLowerCase()
+      }
+    }).then((response) => {
+      setListFiles(response.data.blobs);
+    })
+  }
+
+  async function handleSubmit(event: any) {
+    event.preventDefault();
+    setUploading(true);
+    const file = fileRef.current?.files?.[0];
+    if (!file) {
+      console.error('No file selected');
+      setUploading(false);
+      return;
+    }
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('name', file.name);
+
+    axios.post('/api/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      },
+      onUploadProgress: (progressEvent) => {
+        const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 100));
+        setUploadProgress(percentCompleted); // Update state with progress
+        console.log(percentCompleted);
+      }
+    }).then((response) => {
+      setFolderID(response.data.folder);
+      setUploading(false);
+    }).catch((error) => {
+      console.error(error);
+      setUploading(false);
+    })
+  }
+  console.log(uploadProgress);
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
-        </div>
+    <main className="min-h-screen  flex items-center justify-center flex-col text-center xl:text-left">
+      <div className="flex items-center justify-center p-4">
+        <h1 className="scroll-m-20 xl:pb-10 text-4xl font-extrabold tracking-tight lg:text-5xl">
+          Super Simple Large File Share
+        </h1>
       </div>
-
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-full sm:before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full sm:after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 before:lg:h-[360px] z-[-1]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
+      <div className="flex items-center justify-center p-4 w-full max-w-md">
+        <Tabs defaultValue="share" className="w-full">
+          <TabsList className="w-full">
+            <TabsTrigger value="share" className="flex-1">Share</TabsTrigger>
+            <TabsTrigger value="recieve" className="flex-1">Recieve</TabsTrigger>
+          </TabsList>
+          <TabsContent value="share">
+            <div className="flex flex-col items-center justify-center">
+              <div className="flex w-full items-center gap-1.5">
+                {/* <Label htmlFor="picture">Choose a file</Label> */}
+                <Input ref={fileRef} id="file" type="file" />
+                <Button className="w-min" onClick={handleSubmit}
+                  disabled={uploading}
+                >Upload</Button>
+              </div>
+              <div className={`
+                  w-full mt-4 transition-transform overflow-hidden ${uploadProgress === 0 ? 'h-0' : 'h-4'}
+                `}>
+                <Progress value={uploadProgress} max={100} />
+              </div>
+              {folderID ? <p className="leading-7 [&:not(:first-child)]:mt-6">
+                Your file share code is: <Button className="ml-2" size={"sm"} variant={"outline"}
+                  onClick={() => {
+                    navigator.clipboard.writeText(folderID).then(() => {
+                      toast({
+                        title: 'Copied to clipboard',
+                        description: 'You can now share the code with anyone',
+                      })
+                    })
+                  }}
+                >{folderID}</Button>
+              </p> : null}
+            </div>
+          </TabsContent>
+          <TabsContent value="recieve">
+            <div className="flex flex-col gap-4 items-center justify-center">
+              <div className="flex w-full items-center gap-1.5">
+                {/* <Label htmlFor="picture">Choose a file</Label> */}
+                <Input id="code" onChange={(e) => setGetFolderID(e.target.value)} />
+                <Button type="submit" className="w-min" onClick={handleDownload}>Download</Button>
+              </div>
+              {
+                listFiles?.map((file, i) => {
+                  return (
+                    <Alert className="text-left cursor-pointer" key={file.size} onClick={() => {
+                      window.open(file.url, '_blank');
+                    }}>
+                      <File className="h-4 w-4" />
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <AlertTitle>{
+                            file.name.split('/').pop()
+                          }</AlertTitle>
+                          <AlertDescription>
+                            {/* filesize */}
+                            {humanFileSize(file.size)}
+                          </AlertDescription>
+                        </div>
+                        <Download className="h-6 w-6" />
+                      </div>
+                    </Alert>
+                  )
+                })}
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
-
-      <div className="mb-32 grid text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50 text-balance`}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
+      <p className="leading-7 [&:not(:first-child)]:mt-8">
+        Upload a file, get a link, share it with anyone. No limits, no fees. It's that simple.
+      </p>
     </main>
   );
+}
+
+function humanFileSize(bytes: number, si = false, dp = 1) {
+  const thresh = si ? 1000 : 1024;
+
+  if (Math.abs(bytes) < thresh) {
+    return bytes + ' B';
+  }
+
+  const units = si
+    ? ['kB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
+    : ['KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB'];
+  let u = -1;
+  const r = 10 ** dp;
+
+  do {
+    bytes /= thresh;
+    ++u;
+  } while (Math.round(Math.abs(bytes) * r) / r >= thresh && u < units.length - 1);
+
+
+  return bytes.toFixed(dp) + ' ' + units[u];
 }
