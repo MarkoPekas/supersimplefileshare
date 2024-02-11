@@ -136,7 +136,7 @@ export default function Home() {
         </Tabs>
       </div>
       <p className="leading-7 [&:not(:first-child)]:mt-8">
-        Upload a file, get a link, share it with anyone. No limits, no fees. It's that simple.
+        Upload a file, get a link, share it with anyone. No limits, no fees. It{"'"}s that simple.
       </p>
     </main>
   );
