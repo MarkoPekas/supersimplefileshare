@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { GoogleAnalytics } from '@next/third-parties/google'
+import { Suspense } from 'react'
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -26,7 +27,9 @@ export default function RootLayout({
         <link rel="manifest" href="/favicon/site.webmanifest" />
       </head>
       <body className={inter.className}>
+        <Suspense fallback={<div>Loading...</div>}>
         {children}
+        </Suspense>
         <Toaster />
       </body>
       <GoogleAnalytics gaId="G-JS2JRVVFV3" />
