@@ -9,14 +9,18 @@ import { useToast } from "@/components/ui/use-toast";
 import axios from "axios";
 import { Download, File, FileWarning } from "lucide-react";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import React from "react";
 
 export default function Home() {
   const { toast } = useToast()
+  const searchParams = useSearchParams();
+
   const fileRef = React.useRef<HTMLInputElement>(null);
   const [uploadProgress, setUploadProgress] = React.useState(0);
   const [folderID, setFolderID] = React.useState('');
-  const [getFolderID, setGetFolderID] = React.useState('');
+  const [dlLink, setDlLink] = React.useState('' as string | undefined); // [url, setUrl
+  const [getFolderID, setGetFolderID] = React.useState(searchParams.get("f") ||'');
   const [listFiles, setListFiles] = React.useState([] as any[]);
   const [uploading, setUploading] = React.useState(false);
   const [exists, setExists] = React.useState<boolean | undefined>(true);
@@ -27,7 +31,7 @@ export default function Home() {
       }
     }).then((response) => {
       setListFiles(response.data.blobs);
-      setExists(response.data.blobs.length>0);
+      setExists(response.data.blobs.length > 0);
     })
   }
 
@@ -36,6 +40,7 @@ export default function Home() {
     const file = fileRef.current?.files?.[0];
     if (!file) {
       setUploading(false);
+      fileRef.current?.click();
       return;
     }
     axios.get(`/api/upload`, {
@@ -60,6 +65,7 @@ export default function Home() {
       }
     }).then(() => {
       setFolderID(folder);
+      setDlLink(`https://sendto.one/?f=${folder}`);
       setUploading(false);
     }).catch((error) => {
       console.error(error);
@@ -67,7 +73,14 @@ export default function Home() {
     })
   }
 
-  console.log(uploadProgress);
+  // call /api/init to delete old files
+  React.useEffect(() => {
+    axios.get(`/api/init`)
+    if( searchParams.get("f")) {
+      handleDownload();
+    }
+  }, [])
+
   return (
     <main className="min-h-screen  flex items-center justify-center flex-col text-center xl:text-left">
       <div className="flex items-center justify-center p-4">
@@ -76,7 +89,7 @@ export default function Home() {
         </h1>
       </div>
       <div className="flex items-center justify-center p-4 w-full max-w-md">
-        <Tabs defaultValue="share" className="w-full">
+        <Tabs defaultValue={searchParams.get("f")?"recieve":"share"} className="w-full">
           <TabsList className="w-full">
             <TabsTrigger value="share" className="flex-1">Share</TabsTrigger>
             <TabsTrigger value="recieve" className="flex-1">Recieve</TabsTrigger>
@@ -107,13 +120,30 @@ export default function Home() {
                   }}
                 >{folderID}</Button>
               </p> : null}
+              {
+                dlLink
+                  ? <p className="leading-7 [&:not(:first-child)]:mt-6">
+                    Your download link is:
+                    <Button className="ml-2" size={"sm"} variant={"outline"}
+                      onClick={() => {
+                        navigator.clipboard.writeText(dlLink).then(() => {
+                          toast({
+                            title: 'Copied to clipboard',
+                            description: 'You can now share the link with anyone',
+                          })
+                        })
+                      }}
+                    >{dlLink}</Button>
+                  </p>
+                  : null
+              }
             </div>
           </TabsContent>
           <TabsContent value="recieve">
             <div className="flex flex-col gap-4 items-center justify-center">
               <div className="flex w-full items-center gap-1.5">
                 {/* <Label htmlFor="picture">Choose a file</Label> */}
-                <Input id="code" onChange={(e) => setGetFolderID(e.target.value)} />
+                <Input id="code" value={getFolderID} onChange={(e) => setGetFolderID(e.target.value)} />
                 <Button type="submit" className="w-min" onClick={handleDownload}>Download</Button>
               </div>
               {
@@ -156,7 +186,7 @@ export default function Home() {
         </Tabs>
       </div>
       <p className="leading-7 [&:not(:first-child)]:mt-8 px-2">
-        Upload a file, get a link, share it with anyone. No limits, no fees. It{"'"}s that simple.
+        Upload a file, get a link, share it with anyone within 24 hours. No limits, no fees. It{"'"}s that simple.
       </p>
     </main>
   );
